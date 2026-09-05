@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noPropertyAccessFromIndexSignature": false,
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "exclude": ["node_modules"],
+  "extends": "../../tsconfig.base.json",
+  "include": [
+    ".next/dev/types/**/*.ts",
+    ".next/types/**/*.ts",
+    "**/*.mts",
+    "**/*.ts",
+    "**/*.tsx",
+    "next-env.d.ts"
+  ]
+}

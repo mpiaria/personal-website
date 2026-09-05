@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "outDir": "./dist"
+  },
+  "exclude": ["node_modules", "cdk.out", "dist"],
+  "extends": "../tsconfig.base.json",
+  "include": ["**/*.ts"]
+}

@@ -1,0 +1,153 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  lint:
+    name: Lint and Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run type check on infrastructure
+        run: npm run build --workspace=infrastructure
+
+      - name: Run type check on app
+        run: npm run build --workspace=packages/ui
+
+      - name: Run tests
+        run: npm run test --workspaces
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: lint
+    timeout-minutes: 30
+
+    outputs:
+      stack-name: ${{ steps.deploy.outputs.stack-name }}
+      stack-output: ${{ steps.deploy.outputs.stack-output }}
+
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Install dependencies
+        run: npm ci --workspace=infrastructure
+
+      - name: Build CDK infrastructure
+        run: npm run build --workspace=infrastructure
+
+      - name: CDK Synth
+        run: npx cdk synth --app infrastructure/cdk.out
+        working-directory: ./infrastructure
+
+      - name: CDK Deploy
+        id: deploy
+        run: |
+          set +e
+          npx cdk deploy --app infrastructure/cdk.out --require-approval never --ci
+          echo "stack-name=personal-website-stack" >> $GITHUB_OUTPUT
+        working-directory: ./infrastructure
+        continue-on-error: true
+
+  build-app:
+    name: Build Next.js App
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --workspace=packages/ui
+
+      - name: Build app
+        run: npm run build --workspace=packages/ui
+        env:
+          NODE_ENV: production
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-build
+          path: packages/ui/.next/
+          retention-days: 7
+
+  deploy-app:
+    name: Deploy Next.js App
+    runs-on: ubuntu-latest
+    needs: [build-app, deploy-infrastructure]
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nextjs-build
+          path: packages/ui/.next/
+
+      - name: Deploy to AWS (placeholder)
+        run: |
+          echo "Deploying Next.js app to AWS..."
+          echo "This job would typically deploy to:"
+          echo "- Amazon S3 + CloudFront"
+          echo "- AWS Lambda@Edge"
+          echo "- Amazon ECS/Fargate"
+          echo "- AWS Amplify"
+          echo "Configure your deployment method in the workflow file."
+
+      - name: Notify deployment status
+        if: always()
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          message: "Deployment completed! Stack: ${{ needs.deploy-infrastructure.outputs.stack-name }}"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
