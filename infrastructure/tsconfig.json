@@ -2,9 +2,10 @@
   "compilerOptions": {
     "module": "esnext",
     "moduleResolution": "bundler",
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "rootDir": "./src"
   },
   "exclude": ["node_modules", "cdk.out", "dist"],
   "extends": "../tsconfig.base.json",
-  "include": ["**/*.ts"]
+  "include": ["src/**/*.ts"]
 }
