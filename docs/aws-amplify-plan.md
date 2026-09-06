@@ -11,7 +11,16 @@ The user wants to host their Next.js site located in `./packages/ui` using AWS A
 | `packages/ui` | Next.js 16.3.4 (App Router), build output in `.next/` |
 | `infrastructure/` | Empty CDK v2 skeleton, no resources defined |
 | `packages/ui/` | No Amplify-specific configuration |
-| CI/CD | Basic lint/test workflow, no deployment |
+| CI/CD | Basic lint/test workflow (`.github/workflows/cicd.yml`), no deployment |
+
+### GitHub Actions Deployment Options
+
+There are two patterns for deploying with GitHub Actions:
+
+| Pattern | Description | Pros | Cons |
+|---------|-------------|------|------|
+| **Amplify's built-in CI/CD** | Connect repo to Amplify Console; auto-deploys on push | Fully managed, zero config | Less control, can't customize workflow |
+| **GitHub Actions + Amplify CLI** | Use GitHub Actions to build and deploy via AWS CLI/CDK | Full control, reusable workflows | More setup, needs AWS credentials stored |
 
 ### What is AWS Amplify?
 
@@ -201,7 +210,73 @@ Pass to Amplify via `environmentVariables` in CDK or through the Amplify Console
 2. **Configure your Next.js app** for the deployment mode you want
 3. **Write the CDK stack** in `infrastructure/src/lib/amplify-stack.ts`
 4. **Test deployment** with `npx cdk deploy`
-5. **Configure GitHub OAuth** in Amplify Console for CI/CD
+5. **Choose a CI/CD pattern**:
+   - Use Amplify's built-in CI/CD (simplest - auto-deploys on push)
+   - Or set up GitHub Actions workflow for more control
+
+---
+
+## GitHub Actions Deployment Workflow (Alternative Approach)
+
+If you prefer GitHub Actions to control deployments, add this workflow:
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to Amplify
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Deploy to AWS Amplify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js app
+        run: npm run build --workspace=packages/ui
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-deploy-role
+          role-session-name: github-actions-deploy
+
+      - name: Deploy to Amplify
+        run: |
+          npm install -g aws-cdk
+          cd infrastructure
+          npx cdk deploy --require-approval never --ci
+```
+
+**Prerequisites:**
+1. Create an IAM role with Amplify deployment permissions
+2. Store AWS account ID as repository secret `AWS_ACCOUNT_ID`
+3. Grant the role permission to call `amplify:StartDeployment`
+
+**Or use Amplify's built-in CI/CD (simpler):**
+- After deploying the CDK stack, connect your repo in Amplify Console
+- No GitHub Actions needed - Amplify auto-deploys on push
 
 ---
 
