@@ -6,11 +6,9 @@
     "build": "tsc",
     "cdk": "cdk",
     "clean": "rimraf cdk.out && rimraf dist",
-    "test": "jest"
+    "test": "vitest run --coverage"
   },
   "devDependencies": {
-    "@swc/core": "^1.16.2",
-    "@swc/jest": "^0.2.39",
     "aws-cdk": "2.1140.0"
   },
   "dependencies": {

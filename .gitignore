@@ -40,3 +40,6 @@ coverage/
 # OS files
 Thumbs.db
 .DS_Store
+
+# Vitest reports and artifacts
+.vitest/
